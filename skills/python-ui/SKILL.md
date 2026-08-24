@@ -1,20 +1,21 @@
 ---
 name: python-ui
 description: >-
-  Rules for Python desktop UI (tkinter / ttkbootstrap): modern appearance, safe window-close lifecycle, background-thread teardown, multi-resolution .ico app icons checked in three places (explorer / title-bar / taskbar). Apply to any task involving tkinter/ttkbootstrap, desktop window lifecycle (close handling, after callbacks, worker threads), or application icons.
+  Rules for Python desktop UI (tkinter / ttkbootstrap): modern appearance, safe window-close lifecycle, background-thread teardown, and where the app icon has to be checked. Use this for any task involving tkinter/ttkbootstrap widgets, desktop window lifecycle (close handling, after callbacks, worker threads), or a packaged desktop app's icon. This skill is the implementation half of the `ui-project` skill — load `ui-project` alongside it, always.
 paths:
   - "**/*.py"
   - "**/*.spec"
-model: opus
-effort: medium
 ---
 
 # Python Desktop UI Rules
+
+**Load the `ui-project` skill together with this one.** `ui-project` is the upper layer: it owns the documentation set (UI_README.html, 使用者指引.html) and PyInstaller packaging, including the `.ico` and `sys._MEIPASS` rules that the code below has to satisfy. This file covers only what goes inside the Python source.
 
 ## 1. Toolkit & appearance
 
 - If the UI is (or will be) built on native Tk/tkinter: use **ttkbootstrap** to ensure a modern look. Pick a theme explicitly and state which one; prefer ttk/ttkbootstrap widgets over raw `tk.*` widgets whenever an equivalent exists (mixing the two produces inconsistent styling).
 - If the project uses another framework (PyQt6, etc.), this rule does not apply — follow that framework's idioms instead.
+- Before building a screen from scratch, offer the built-in `/design` command: it produces a multi-artboard canvas the user can rearrange and confirm visually, which settles layout questions faster than iterating on tkinter code. See the `ui-project` skill.
 
 ## 2. Safe window close
 
@@ -29,34 +30,26 @@ Every app must survive both a normal close and an abrupt close without data corr
   5. `root.destroy()`.
 - Threads must never touch tkinter widgets directly — marshal results through a `queue.Queue` polled via `after()`, so shutdown order stays deterministic.
 - Wrap `mainloop()` in `try/finally` for cleanup that must run even on unhandled exceptions or console kill.
-- Verify (global: Goal-Driven Execution): close the window mid-operation and confirm the process actually exits, no `invalid command name` / `application has been destroyed` errors appear, and no resources are left open.
 
-## 3. .ico application icons
+## 3. Application icon — the code side
 
-An app icon appears in THREE places, each with its own failure mode. All three must be checked:
+The `.ico` file's own requirements (multi-resolution, how to generate one, the `icon=` entry in the .spec) belong to the `ui-project` skill's packaging section. Load it rather than re-deriving them here. What this file adds is the two things that live in the Python source:
 
-1. **Explorer/directory icon** of the packaged .exe — from `icon=` in the PyInstaller .spec.
-2. **Window title-bar icon** — `root.iconbitmap(...)` (or `iconphoto` for PNG-based).
-3. **Taskbar icon** while the app runs.
+1. **Window title-bar icon** — `root.iconbitmap(...)`, or `iconphoto` for a PNG-based icon. In onefile builds the path must go through the `sys._MEIPASS`-aware helper from `ui-project`, because onefile extracts to a temp directory and a hardcoded relative path breaks.
+2. **Taskbar icon** — Windows groups by process and will otherwise show the Python interpreter's icon. Set an explicit AppUserModelID BEFORE creating the root window:
 
-Rules:
+   ```python
+   import ctypes
+   ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("company.appname")
+   ```
 
-- If no .ico exists at the expected path, stop and ask the user whether to generate one, or whether they simply forgot to put the intended file there. Never generate an icon unprompted.
-- The .ico file MUST be multi-resolution — at minimum 16, 32, 48, and 256 px. Verify before use:
+If no `.ico` exists at the expected path, stop and ask the user whether to generate one, or whether they simply forgot to put the intended file there. Never generate an icon unprompted.
 
-  ```python
-  from PIL import Image
-  im = Image.open("app.ico")
-  print(im.ico.sizes())  # expect (16,16), (32,32), (48,48), (256,256) to be present
-  ```
+## 4. Verification
 
-  A single-size .ico renders blurry or falls back to a default icon in at least one of the three locations. If the check fails, regenerate the .ico (e.g., with Pillow from a ≥256px source PNG) before proceeding.
-- In onefile builds, `iconbitmap` must load the .ico through the `sys._MEIPASS` path helper (see the PyInstaller packaging section of the `ui-project` skill), and the .ico must be added to the .spec `datas`.
-- Windows may show the Python interpreter's icon in the taskbar instead of yours (icon grouping by process). Set an explicit AppUserModelID BEFORE creating the root window:
+Run the app; do not sign off on reading the code (global: Goal-Driven Execution):
 
-  ```python
-  import ctypes
-  ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("company.appname")
-  ```
-
-- Verify (global: Goal-Driven Execution): after packaging, visually confirm all three locations show the intended icon.
+1. **Close mid-operation** — start a long task, then close the window. The process actually exits, no `invalid command name` or `application has been destroyed` appears, and no serial/file/DB handle is left open.
+2. **Close while idle** — the same, with unsaved state present: the confirm dialog appears and both answers behave.
+3. **Widgets** — no raw `tk.*` widget sits next to a ttk equivalent in the same window.
+4. **Icon** — after packaging, all three surfaces show the intended icon: the .exe in Explorer, the window title bar, and the taskbar while running. Explorer's icon comes from the .spec (`ui-project`); the other two come from §3.

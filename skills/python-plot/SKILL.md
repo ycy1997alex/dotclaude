@@ -1,12 +1,7 @@
 ---
 name: python-plot
 description: >-
-  Rules for Python plotting with matplotlib / seaborn: GridSpec layout, seaborn style baseline, dynamic 5% y-axis padding, alpha layering, save defaults (dpi=300, tight bbox), CJK label fonts. Apply to any task that creates, edits, or saves plots, subplots, or figures with matplotlib or seaborn.
-paths:
-  - "**/*.py"
-  - "**/*.ipynb"
-model: sonnet
-effort: medium
+  Applies the house Matplotlib / seaborn figure conventions — GridSpec layout, seaborn style baseline, dynamic 5% y-axis padding, deliberate alpha layering, dpi=300 with a tight bounding box, and CJK-safe label fonts on Windows. Use this whenever a plot, chart, figure, or subplot is being produced, restyled, or saved in Python, including quick one-off diagnostic plots, and including requests phrased with no file in sight — "畫一張圖", "幫我畫個折線圖", "plot this", "把結果視覺化", "圖太醜幫我調一下", "存成圖檔" — as well as any call to plt.subplots, plt.figure, sns.lineplot, sns.barplot, or savefig.
 ---
 
 # Python Plotting Rules (matplotlib / seaborn)
@@ -37,7 +32,7 @@ effort: medium
 
   Switch styles only when the user asks.
 
-- 中文標籤 (optional, Windows): if any label/title contains Chinese, set the font first to avoid tofu boxes:
+- CJK labels (optional, Windows): if any label or title contains Chinese, set the font first to avoid tofu boxes:
 
   ```python
   plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']
@@ -51,7 +46,7 @@ effort: medium
   ```python
   def pad_ylim(ax, ymin, ymax, ratio=0.05):
       span = ymax - ymin
-      pad = span * ratio if span > 0 else max(abs(ymax), 1.0) * ratio  # 全距為 0 時的退場機制
+      pad = span * ratio if span > 0 else max(abs(ymax), 1.0) * ratio  # fallback for a zero-width range
       ax.set_ylim(ymin - pad, ymax + pad)
   ```
 
@@ -75,3 +70,14 @@ effort: medium
   ```
 
 - Deviate (e.g., higher dpi for print, no tight bbox for fixed-canvas exports) only when the user asks or the output target requires it — say so when deviating.
+
+## 6. Verification
+
+A figure is not done until it has been rendered and looked at (global: Goal-Driven Execution):
+
+1. Run the script and open the saved file — "the code looks right" is not a check.
+2. No tofu boxes (`□`) in any label, title, tick, or legend entry. If any appear, §2's font block is missing or the chosen font lacks the glyph.
+3. Nothing is clipped: the tight bounding box kept every axis label, legend, and title inside the canvas.
+4. No series touches the top or bottom spine — §3's padding is applied and was computed from all series, not one.
+5. The primary series is visually dominant; alpha was applied to background layers only.
+6. Saved at `dpi=300` unless a deviation was stated.

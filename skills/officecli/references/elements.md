@@ -1,43 +1,84 @@
 # officecli — Element types & format-specific operations
 
-Loaded on demand from `SKILL.md`. Read this when you need to know which element types exist for a format, or need pivot tables / document-level properties / sort / anchored insert.
+Loaded on demand from `SKILL.md`. Read this when you need to know which element types exist for a format, or need pivot tables / document-level properties / sort / anchored insert / clone.
 
-**When unsure about a property name, run `officecli help <format> <element>` instead of reading this table top to bottom.** This file is the map; `help` is the authority.
+**When unsure about a property name, run `officecli help <format> <element>` instead of reading this file top to bottom.** This file is the map; `help` is the authority.
 
----
+All examples are PowerShell.
 
-## Element types (with aliases)
+## Element types
 
 ### pptx
 
-slide (incl. hidden), shape (font.latin/ea/cs, direction=rtl, underline.color, highlight=COLOR (Add/Set/Get/HTML preview), effective.X+effective.X.src; arrow alias for rightArrow; slideMaster/slideLayout typed add/set/remove), picture (SVG, brightness/contrast/glow/shadow, rotation, link, tooltip), chart (direction=rtl, pieOfPie, barOfPie, axisLine/gridline per-attr setters, animation+chartBuild=byCategory|bySeries, line dropLines/hiLowLines/upDownBars, anchor=x,y,w,h shorthand), table (cell direction=rtl, fill/background, built-in PowerPoint style catalogue, /col[C] get + swap/copyFrom, row/col Move/CopyFrom), row (tr), connector (from/to accept full-path `@name=`/`@id=` forms — bare `@name=Foo` is rejected, must be `/slide[N]/shape[@name=Foo]` — startshape/endshape SetByPath; edge-to-edge anchoring by default, fromSide/toSide to force an edge, fromIdx/toIdx for raw cxn index), group (link, tooltip, deep walk by get/query/add/remove, ungroup=true dissolves back to slide-absolute), align/distribute (targets= accepts shape[@id=N] paths, not just positional), video/audio (loop, autoStart alias), equation, notes (direction=rtl, lang), comment (legacy + modern p188 threaded round-trip), animation (15 emphasis + 16 exit presets, multi-effect chains, motion-path presets, repeat/restart/autoReverse, chart animations), transition (12 p15 presets + morph/p14), paragraph (para), run, zoom, ole (preview=, full dump round-trip via add-part+raw-set), placeholder (phType=...), model3d (rotation=ax,ay,az; full dump round-trip), smartart (dump round-trip via add-part), diagram (add-only mermaid → native shapes or rendered image, `--type diagram`/`flowchart`).
+| Type (aliases) | Notes |
+|---|---|
+| `slide` | Hidden slides included. `slideMaster` / `slideLayout` are separately addressable. |
+| `shape` | `font.latin` / `font.ea` / `font.cs` per script; `highlight=COLOR`; `effective.X` reads the resolved value and `effective.X.src` says where it came from. |
+| `picture` | SVG supported. `brightness`, `contrast`, `glow`, `shadow`, `rotation`, `link`, `tooltip`. |
+| `chart` | `anchor=x,y,w,h` shorthand. Per-attribute axis and gridline setters. Pie-of-pie and bar-of-pie. |
+| `table`, `row` (`tr`) | Built-in PowerPoint style catalogue. `/col[C]` addressable for get / swap / copyFrom. |
+| `connector` | `from` / `to` need a full path — `/slide[N]/shape[@name=Foo]`. A bare `@name=Foo` is rejected. Edge-to-edge anchoring by default; `fromSide` / `toSide` force a specific edge. |
+| `group` | `get` / `query` / `add` / `remove` walk into it. `ungroup=true` dissolves it back to slide-absolute coordinates. |
+| `align` / `distribute` | `targets=` accepts `shape[@id=N]` paths, not only positional ones. |
+| `video`, `audio` | `loop`, `autoStart`. |
+| `animation`, `transition` | Emphasis, exit, and motion-path presets; multi-effect chains; `repeat` / `restart` / `autoReverse`; chart build order. Morph transition supported. |
+| `paragraph` (`para`), `run` | Text inside a shape. |
+| `notes`, `comment` | Threaded comments round-trip. |
+| `equation`, `zoom`, `placeholder` (`phType=`), `ole`, `model3d`, `smartart` | `model3d` takes `rotation=ax,ay,az`. |
+| `diagram` / `flowchart` | Add-only: Mermaid source becomes native shapes or a rendered image. |
 
 ### docx
 
-paragraph (direction/font.latin/ea/cs, bold.cs/italic.cs/size.cs, lang.latin/ea/cs, wordWrap, framePr.\*, tabs shorthand), run (lang slots, direction, underline.color, position half-pts, **revision.type=ins\|del\|format\|moveFrom\|moveTo + revision.action=accept\|reject** with .author/.date — bare `@author=`/`@type=` selector on `set /revision[...]` for filtered accept/reject, but `query 'revision[...]'` needs the dotted `revision.author=`/`revision.type=` form; move+revision is run-level paths only, not paragraph-level; **range=START:END** on a paragraph/shape path formats a char span by explicit 0-based half-open offset instead of addressing a run — the offset sibling of find=), table (direction=rtl, hMerge, cantSplit on row/nowrap on cell (both add+set), **virtual column ops**: add/remove/move/copyfrom on /body/tbl[N]/col), row (tr), cell (td), image, header/footer (direction), section (pageNumFmt full enum, direction=rtl, rtlGutter, pgBorders=box), bookmark, comment, footnote, endnote, formfield, sdt, chart, equation, field (28 types), hyperlink, style (direction, indents, pbdr, lineSpacing on Add/Set), toc, watermark, break, ole, **num/abstractNum/lvl**, **tab**, **textbox/shape** (add-mostly — Get returns raw XML preview only, no structured readback; Set is limited to width/height/geometry/fill/line.\*; position is `anchor.x`/`anchor.y` not bare x/y; **textbox-only** `textDirection`/rotation/gradient/shadow — docx shape itself has neither rotation nor gradient), embedded **OLE round-trip on dump→batch**, **diagram** (add-only mermaid → native shapes or rendered image, `--type diagram`/`flowchart`, no x/y at add-time — reposition via `set /body/group[N]`). docDefaults.rtl, autoHyphenation, `get /` exposes locale + /comments /footnotes /endnotes. `create --minimal` for raw OOXML scaffolding.
+| Type (aliases) | Notes |
+|---|---|
+| `paragraph` | `direction`, per-script `font.latin` / `.ea` / `.cs`, `bold.cs` / `italic.cs` / `size.cs`, `lang.*`, `wordWrap`, `framePr.*`, `tabs` shorthand. |
+| `run` | Per-script `lang` slots, `direction`, `underline.color`, `position` in half-points. `range=START:END` on a paragraph path formats a character span by 0-based half-open offset — the offset-based sibling of `--find`. |
+| revisions | `revision.type=ins\|del\|format\|moveFrom\|moveTo` plus `revision.action=accept\|reject`, with `.author` / `.date`. On `set /revision[...]` a bare `@author=` / `@type=` selector filters; on `query 'revision[...]'` use the dotted `revision.author=` / `revision.type=` form. Move revisions are run-level paths only. |
+| `table`, `row` (`tr`), `cell` (`td`) | `hMerge`, `cantSplit` on row, `nowrap` on cell. Virtual column ops — add / remove / move / copyFrom on `/body/tbl[N]/col`. |
+| `section` | Full `pageNumFmt` enum, `direction=rtl`, `rtlGutter`, `pgBorders=box`. |
+| `header`, `footer` | `direction`. |
+| `image`, `chart`, `equation`, `watermark`, `break`, `ole` | |
+| `bookmark`, `hyperlink`, `field`, `toc` | `field` covers 28 field types. |
+| `comment`, `footnote`, `endnote` | `get /` exposes `/comments`, `/footnotes`, `/endnotes`. |
+| `formfield`, `sdt` | Content controls. |
+| `style` | `direction`, indents, `pbdr`, `lineSpacing` on both add and set. |
+| `num` / `abstractNum` / `lvl`, `tab` | List numbering definitions. |
+| `textbox` / `shape` | Add-mostly. `get` returns a raw XML preview, not a structured readback. `set` is limited to width / height / geometry / fill / `line.*`. Position is `anchor.x` / `anchor.y`, not bare `x` / `y`. `textDirection`, `rotation`, `gradient`, and `shadow` work on `textbox` only — a docx `shape` has neither rotation nor gradient. |
+| `diagram` / `flowchart` | Add-only Mermaid, and no `x` / `y` at add time — reposition afterwards with `set /body/group[N]`. |
+
+Document-level: `docDefaults.rtl`, `autoHyphenation`. `create --minimal` produces raw OOXML scaffolding.
 
 ### xlsx
 
-sheet (visible/hidden/veryHidden, print margins, printTitleRows/Cols, rightToLeft sheetView, cascade-aware rename), row (c{N}= cell-content shorthand; add accepts --from /Sheet/col[L]; formula-ref rewrite on insert), col (formula-ref rewrite, named-range follow on move), cell (type=richtext+runs, merge=range/sweep, direction=rtl, phonetic; **--shift left\|up on remove, shift=right\|down on add** — Excel UI dialog parity; formula auto-detect; OFFSET/INDIRECT in calc), chart (per-axis RTL/title, anchor=x,y,w,h, pareto), image (SVG), comment (direction=rtl), table (listobject), namedrange (definedname, volatile, `[@name=X]`; formula-body inlined at parse), pivottable (cache CoW + cross-pivot sharing, labelFilter=field:type:value add-time-only, topN=integer add-time-only, fillDownLabels is an alias of repeatLabels not a separate feature, calculatedField), sparkline, validation, autofilter, shape, textbox, CF (databar/colorscale/iconset/formulacf/cellIs/topN/aboveAverage), ole, csv. Query supports `merge`/`mergedrange`. Workbook: password. Shape selector enumerates leaves inside grpSp.
+| Type (aliases) | Notes |
+|---|---|
+| `sheet` | `visible` / `hidden` / `veryHidden`, print margins, `printTitleRows` / `printTitleCols`, `rightToLeft` sheet view. Rename cascades to formulas that reference the sheet. |
+| `row` | `c{N}=` cell-content shorthand. `add` accepts `--from /Sheet/col[L]`. Formula references are rewritten on insert. |
+| `col` | Formula references rewritten; named ranges follow on move. |
+| `cell` | `type=richtext` with runs, `merge=range\|sweep`, `direction=rtl`, phonetic. `--shift left\|up` on remove and `shift=right\|down` on add. Formulas are auto-detected; `OFFSET` / `INDIRECT` resolve in calc. |
+| `chart` | Per-axis RTL and title, `anchor=x,y,w,h`, Pareto. |
+| `pivottable` | See below. |
+| `table` (listobject), `namedrange` (`definedname`) | `namedrange` supports `volatile` and `[@name=X]`. |
+| `sparkline`, `validation`, `autofilter` | |
+| `CF` | Conditional formatting: databar, colorscale, iconset, formula, cellIs, topN, aboveAverage. |
+| `image`, `comment`, `shape`, `textbox`, `ole`, `csv` | The shape selector enumerates leaves inside grouped shapes. |
 
----
+`query` supports `merge` / `mergedrange`. Workbook-level: `password`.
 
 ## Pivot tables (xlsx)
 
-```bash
-officecli add data.xlsx /Sheet1 --type pivottable \
-  --prop source="Sheet1!A1:E100" --prop rows=Region,Category \
-  --prop cols=Year --prop values="Sales:sum,Qty:count" \
+```powershell
+officecli add data.xlsx /Sheet1 --type pivottable `
+  --prop source="Sheet1!A1:E100" --prop rows=Region,Category `
+  --prop cols=Year --prop values="Sales:sum,Qty:count" `
   --prop grandTotals=rows --prop subtotals=off --prop sort=asc
 ```
 
-Key props: `rows`, `cols`, `values` (Field:func[:showDataAs]), `filters`, `source`, `position`, `layout` (compact/outline/tabular), `repeatLabels`, `blankRows`, `aggregate`, `showDataAs` (percent_of_total/row/col, running_total), `grandTotals`, `subtotals`, `sort`. Aggregators: sum, count, average, max, min, product, stdDev, stdDevp, var, varp, countNums. Date columns auto-group. Run `officecli help xlsx pivottable` for full schema.
-
----
+Key props: `rows`, `cols`, `values` (`Field:func[:showDataAs]`), `filters`, `source`, `position`, `layout` (compact/outline/tabular), `repeatLabels`, `blankRows`, `aggregate`, `showDataAs` (percent_of_total/row/col, running_total), `grandTotals`, `subtotals`, `sort`, `calculatedField`. Aggregators: sum, count, average, max, min, product, stdDev, stdDevp, var, varp, countNums. Date columns auto-group. `labelFilter=field:type:value` and `topN=<integer>` can only be set at add time. Run `officecli help xlsx pivottable` for the full schema.
 
 ## Document-level properties (all formats)
 
-```bash
+```powershell
 officecli set doc.docx / --prop docDefaults.font=Arial --prop docDefaults.fontSize=11pt
 officecli set doc.docx / --prop protection=forms --prop evenAndOddHeaders=true
 officecli set data.xlsx / --prop calc.mode=manual --prop calc.refMode=r1c1
@@ -46,33 +87,31 @@ officecli set slides.pptx / --prop defaultFont=Arial --prop show.loop=true --pro
 
 Run `officecli help <format> /` for all document-level properties (docDefaults, docGrid, CJK spacing, calc, print, show, theme, extended).
 
----
-
 ## Sort (xlsx)
 
-```bash
+```powershell
 officecli set data.xlsx /Sheet1 --prop sort="C desc" --prop sortHeader=true
 officecli set data.xlsx '/Sheet1/A1:D100' --prop sort="A asc" --prop sortHeader=true
 ```
 
 Format: `COL DIR[, COL DIR ...]`. Rejects ranges with merged cells or formulas. Sidecar metadata (hyperlinks, comments, conditional formatting, drawings) follows rows automatically.
 
----
-
 ## Text-anchored insert (`--after find:X` / `--before find:X`)
 
-Locate an insertion point by text match within a paragraph. Inline types (run, picture, hyperlink) insert within the paragraph; block types (table, paragraph) auto-split it. PPT only supports inline.
+Locate an insertion point by text match within a paragraph. Inline types (run, picture, hyperlink) insert within the paragraph; block types (table, paragraph) auto-split it. PPT supports inline only.
 
-```bash
+```powershell
 # Word: inline run after matched text
 officecli add doc.docx '/body/p[1]' --type run --after find:weather --prop text=" (sunny)"
 
-# Word: block table after matched text (auto-splits paragraph)
+# Word: block table after matched text (auto-splits the paragraph)
 officecli add doc.docx '/body/p[1]' --type table --after "find:First sentence." --prop rows=2 --prop cols=2
 ```
 
----
-
 ## Clone
 
-`officecli add <file> / --from '/slide[1]'` — copies with all cross-part relationships.
+```powershell
+officecli add slides.pptx / --from '/slide[1]'
+```
+
+Copies the element with all its cross-part relationships (images, charts, embedded objects).

@@ -1,14 +1,14 @@
 ---
 name: ui-project
 description: >-
-  Rules for App-project documentation and packaging: UI_README.html developer architecture doc, 使用者指引.html end-user manual, cross-document sync, and PyInstaller .spec packaging (onefile/onedir, sys._MEIPASS resource paths, icons). Apply to any task that writes or updates UI_README.html / 使用者指引.html, or does PyInstaller packaging. README.md and its translations are covered by the separate `readme` skill.
-model: opus
-effort: medium
+  Rules for App-project documentation and packaging: UI_README.html developer architecture doc, 使用者指引.html end-user manual, cross-document sync, visual design sign-off via /design, and PyInstaller .spec packaging (onefile/onedir, sys._MEIPASS resource paths, multi-resolution .ico icons). Apply to any task that writes or updates UI_README.html / 使用者指引.html, designs or confirms what a desktop app's screens look like, or does PyInstaller packaging. README.md and its translations are covered by the separate `readme` skill; the Python-side widget and window-lifecycle rules are in `python-ui`.
 ---
 
 # Software Documentation & Packaging Rules
 
-Scope: §2–§3 and §5 apply only to App projects (runnable application with a user interface); §4 applies whenever more than one document in the set exists. Record per-project decisions ("include UI_README.html?", "使用者指引 needed?", "onefile or onedir?") in that project's own CLAUDE.md so later sessions don't re-ask.
+Scope: §2–§3 and §5–§6 apply only to App projects (runnable application with a user interface); §4 applies whenever more than one document in the set exists. Record per-project decisions ("include UI_README.html?", "使用者指引 needed?", "onefile or onedir?") in that project's own CLAUDE.md so later sessions don't re-ask.
+
+This is the upper layer of a pair. When the task also touches tkinter/ttkbootstrap source, load `python-ui` alongside — it owns the widget, window-lifecycle, and in-process icon rules that the packaging decisions here constrain.
 
 ## 1. README.md — see the `readme` skill
 
@@ -55,14 +55,48 @@ Required sections:
 ## 4. Sync rule — touch one, check all
 
 - When ANY document in this set changes — or a code change alters what any of them describes — check ALL existing documents in the set (README.md, README.en.md if present, UI_README.html, 使用者指引.html) and update every affected one in the SAME commit. Stale docs = failing acceptance check (global: Goal-Driven Execution).
-- When a doc update would be large, list the affected sections and confirm scope with the user first (global: Stop and Ask).
-- Verification (global: Goal-Driven Execution): after writing or updating a doc, read it back and confirm all required sections exist. "File written" is not "done."
+- When a doc update would be large, list the affected sections and confirm scope with the user first (global: Stop and Ask the User When).
 
-## 5. PyInstaller packaging (.spec)
+## 5. Designing the screens — offer `/design` first
+
+Before writing UI code for a screen that does not exist yet, or when the user is unhappy with how one looks, suggest the built-in `/design` command. It produces a multi-artboard canvas — every screen laid out side by side, editable by clicking — so layout, spacing, and flow get settled visually instead of through rounds of "move that button down a bit" against live tkinter code.
+
+- Offer it when: a new window/page/dialog is being invented, a screen is being restyled, or the user describes what they want in visual terms rather than in widget terms.
+- Skip it when: the change is behavioural (a handler, a thread, a validation rule), or the user has already supplied a mockup or a reference screenshot.
+- The canvas is a design artefact, not a spec — once it is confirmed, the screen/component map in §2 is what records the result.
+
+## 6. PyInstaller packaging (.spec)
 
 - **Default: onefile.** Switch to onedir ONLY when the onefile output is too large or startup is unacceptably slow — state the measured reason (size / launch time) and record the decision in the project's CLAUDE.md.
   - Exception: when packaging or measuring is expected to take a long time (e.g., heavy dependencies like torch/tensorflow, large bundled data/models), do NOT run the build just to measure — warn the user first, state the estimated reason (dependency footprint, expected build time), and let the user decide onefile vs onedir before packaging. Record the decision and its basis ("estimated, not measured") in the project's CLAUDE.md.
 - Runtime resources (icons, data files, models): access through a `sys._MEIPASS`-aware path helper; onefile extracts to a temp dir, so hardcoded relative paths break.
-- App icon: set `icon=` in the .spec; the .ico must be multi-resolution (at minimum 16, 32, 48, 256 px) — verify before packaging, a single-size .ico renders blurry or falls back to a default icon.
-- After packaging, smoke-test the actual .exe: launch it and run the single most common task. "Built" is not "done" (global: Goal-Driven Execution).
-- If 使用者指引.html exists, confirm its version/date stamp matches this build (§4 sync rule).
+
+  ```python
+  import sys, pathlib
+
+  def resource_path(relative: str) -> pathlib.Path:
+      base = getattr(sys, "_MEIPASS", None)
+      return pathlib.Path(base or pathlib.Path(__file__).parent) / relative
+  ```
+
+- **App icon**: set `icon=` in the .spec, and add the `.ico` to `datas` so the running app can load it too. The `.ico` MUST be multi-resolution — at minimum 16, 32, 48, and 256 px. A single-size `.ico` renders blurry or falls back to a default icon in at least one place. Verify before packaging:
+
+  ```python
+  from PIL import Image
+  im = Image.open("app.ico")
+  print(im.ico.sizes())  # expect (16,16), (32,32), (48,48), (256,256) to be present
+  ```
+
+  If the check fails, regenerate the `.ico` from a ≥256 px source PNG before proceeding. If no `.ico` exists at all, ask the user rather than generating one unprompted. The two icon surfaces that live in Python source — title bar and taskbar — are covered by `python-ui`.
+
+## 7. Verification
+
+Nothing in this set is done because the file was written (global: Goal-Driven Execution):
+
+1. **Every doc**: read it back and confirm all required sections from §2 / §3 exist and are filled, not placeheld.
+2. **使用者指引.html**: search the file for `README`, `UI_README`, `.py`, `python`, `conda`, `venv`, and any absolute path. Every hit is a standalone-constraint violation and must go.
+3. **Self-contained**: no `<script src=`, `<link rel="stylesheet" href=`, or `<img src=` pointing outside the file, in either HTML document.
+4. **Sync**: version number, app name, and entry-point command read the same in every document that mentions them.
+5. **Packaging**: launch the actual `.exe` and run the single most common task. "Built" is not "done."
+6. **Icon**: after packaging, confirm the .exe's Explorer icon, the window title bar, and the taskbar all show the intended image.
+7. If 使用者指引.html exists, its version/date stamp matches this build (§4).
