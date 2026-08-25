@@ -6,7 +6,7 @@
 
 這個 repo 是 Claude Code 的 **user-scope 設定集**，內容會被部署到家目錄 `~/.claude/`，同時服務本機 Claude Desktop、VS Code 內的 Claude Code、以及終端機的 Claude Code。裡面沒有任何可執行程式碼 — 交付物就是 markdown 規則檔與一份 JSON 設定：一份全域行為準則（`CLAUDE.md`）、8 個 skills、3 條 rules、1 個 subagent，以及 `settings.json` 的權限與模型設定。
 
-兩個目錄不參與部署，也不影響任何模型行為：`含中文翻譯/` 是給人閱讀的鏡像與譯本，`.ref/` 是備查用的舊版準則。`skills/synced/` 是從 claude.ai 帳號同步下來的備份，不是本 repo 自己維護的內容。
+一個目錄不參與部署，也不影響任何模型行為：`.ref/` 是備查用的舊版準則。`skills/synced/` 是從 claude.ai 帳號同步下來的備份，不是本 repo 自己維護的內容。
 
 ## Architecture
 
@@ -33,11 +33,10 @@ dotclaude/                      ~/.claude/
 ├── skills/            ──────►  ├── skills/         description 命中或 /<name>
 │   └── synced/        ──╳───►  │                   （帳號端備份，不部署）
 ├── agents/            ──────►  └── agents/         subagent_type 指定才載入
-├── 含中文翻譯/        ──╳───►  （不部署，純參考）
 └── .ref/              ──╳───►  （不部署，舊版備查）
 ```
 
-部署時**只搬 `rules/`、`skills/`（排除 `synced/`）、`agents/` 與根目錄的三個檔案**。`含中文翻譯/` 若被放進 `~/.claude/skills/` 底下會與正本撞名，務必排除。
+部署時**只搬 `rules/`、`skills/`（排除 `synced/`）、`agents/` 與根目錄的三個檔案**。
 
 分類原則寫在 `rules/skill-authoring.md` 的第 1 節，新增內容前先讀那張表決定歸屬：可重複的多步驟流程 → skill；每次碰到某類檔案都要遵守的慣例 → rule（加 `paths:`）；只在特定任務內成立的慣例 → 帶 `paths:` 的 skill；單一 repo 的 build/test 指令 → 該專案自己的 CLAUDE.md；尚未成形的一次性教訓 → `LESSONS.md`。
 
@@ -66,7 +65,6 @@ dotclaude/
 │   └── synced/                  claude.ai 帳號端同步的 7 個 skill 備份，不部署也不維護
 ├── agents/
 │   └── doc-verifier.md          唯讀文件稽核 subagent
-├── 含中文翻譯/                  上層 15 個英文檔的鏡像 + 13 份 *.zh-TW.md 譯本
 └── .ref/                        舊版準則備查（CLAUDE.Fable5.md / CLAUDE.RULES.md）
 ```
 
@@ -98,7 +96,7 @@ frontmatter 目前的常態是**只有 `name` 與 `description`**。八個 skill
 沒有 build、沒有測試框架、沒有 lint。「部署」就是把檔案放進家目錄：
 
 ```powershell
-# 首次部署（PowerShell）— 排除中譯鏡像、舊版備查與帳號端同步備份
+# 首次部署（PowerShell）— 排除舊版備查與帳號端同步備份
 Copy-Item -Path .\CLAUDE.md, .\settings.json, .\LESSONS.md -Destination "$env:USERPROFILE\.claude\" -Force
 Copy-Item -Path .\rules, .\agents -Destination "$env:USERPROFILE\.claude\" -Recurse -Force
 Copy-Item -Path .\skills -Destination "$env:USERPROFILE\.claude\" -Recurse -Force
@@ -113,26 +111,13 @@ Remove-Item "$env:USERPROFILE\.claude\skills\synced" -Recurse -Force -ErrorActio
 
 1. **格式** — 依 `rules/markdown.md`：每個段落一個實體行、每個區塊前後各空一行、檔尾有換行、無 BOM、無行尾空白。
 
-2. **鏡像同步** — 上層英文檔與 `含中文翻譯/` 的同名英文檔必須 byte-identical：
+2. **章節引用** — 檔案裡每個 `(global: X)` 與 `CLAUDE.md **X**` 都必須對得上 `CLAUDE.md` 現有的 10 個章節名稱。章節被改名或刪掉時，這些引用會無聲失效。
 
-   ```powershell
-   $root = (Resolve-Path .).Path
-   Get-ChildItem -Recurse -File -Filter *.md -Path .\含中文翻譯 |
-     Where-Object { $_.Name -notlike '*.zh-TW.md' } |
-     ForEach-Object {
-       $orig = Join-Path $root $_.FullName.Substring((Join-Path $root '含中文翻譯').Length + 1)
-       $ok = (Test-Path $orig) -and ((Get-FileHash $orig).Hash -eq (Get-FileHash $_.FullName).Hash)
-       "{0,-6} {1}" -f $(if ($ok) { 'OK' } else { 'DRIFT' }), $_.Name
-     }
-   ```
+3. **frontmatter 逐欄對照** — 對照 `rules/skill-authoring.md` 第 2 節的清單人工檢查。`claude plugin validate --strict` 通過**不能**證明欄位有效：它只型別檢查 `description`、`name`、`allowed-tools`、`metadata`、`shell` 五項，對不認得的欄位一律靜默忽略，而且完全不掃 `rules/`。
 
-3. **章節引用** — 檔案裡每個 `(global: X)` 與 `CLAUDE.md **X**` 都必須對得上 `CLAUDE.md` 現有的 10 個章節名稱。章節被改名或刪掉時，這些引用會無聲失效。
+4. **實際觸發** — 依 `rules/skill-authoring.md` 第 8 節，用「使用者真的會怎麼打」的 2–3 句 prompt 試跑。載入失敗是 `description` 的問題，產出錯誤才是 body 的問題，兩者修法不同。
 
-4. **frontmatter 逐欄對照** — 對照 `rules/skill-authoring.md` 第 2 節的清單人工檢查。`claude plugin validate --strict` 通過**不能**證明欄位有效：它只型別檢查 `description`、`name`、`allowed-tools`、`metadata`、`shell` 五項，對不認得的欄位一律靜默忽略，而且完全不掃 `rules/`。
-
-5. **實際觸發** — 依 `rules/skill-authoring.md` 第 8 節，用「使用者真的會怎麼打」的 2–3 句 prompt 試跑。載入失敗是 `description` 的問題，產出錯誤才是 body 的問題，兩者修法不同。
-
-6. **設定生效** — 在任一專案跑 `/status`、`/model`、`/effort` 核對是否與 `settings.json` 一致；產品顯示與本 repo 不一致時，以產品為準並回報漂移。
+5. **設定生效** — 在任一專案跑 `/status`、`/model`、`/effort` 核對是否與 `settings.json` 一致；產品顯示與本 repo 不一致時，以產品為準並回報漂移。
 
 ## Dependencies
 
@@ -161,5 +146,4 @@ Remove-Item "$env:USERPROFILE\.claude\skills\synced" -Recurse -Force -ErrorActio
 4. **語言規則**：對話用台灣繁體中文；rule / skill / agent 檔一律英文。唯一例外是主題本身就是某語言的檔案（`humanizer-zh-tw`），該檔以它所處理的語言撰寫。
 5. **`model:` / `effort:` 預設省略** — 省略即繼承 `settings.json`。要 override 就得在同一份檔案寫下理由。關鍵差異：inline skill 的 override 會改掉**整輪對話**的模型，波及同一輪裡不相干的工作；`context: fork` 的 skill 只影響 fork 內部。所以 override 在 forked skill 上便宜、在 inline skill 上昂貴 —— 與其把一整輪降級，不如把該 skill 改成 fork。
 6. **`background:` 只在 `context: fork` 下有效**，inline skill 上是無效欄位，卻會讓人以為設定了某個從未生效的行為。
-7. **改動英文檔後，同步更新 `含中文翻譯/` 的英文副本與 `.zh-TW.md` 譯本**。譯本只翻正文，`name` 等功能性 frontmatter 欄位保持原值。`humanizer` 目前無譯本、`humanizer-zh-tw` 本身即中文故無 `.zh-TW` 對應檔 — 這兩個缺口是刻意的，不是漏譯。
-8. **引用 `CLAUDE.md` 時用章節名稱，不要用章節編號** — 編號會隨編輯漂移。
+7. **引用 `CLAUDE.md` 時用章節名稱，不要用章節編號** — 編號會隨編輯漂移。

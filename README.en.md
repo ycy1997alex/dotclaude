@@ -6,7 +6,7 @@
 
 This repo is a **user-scope configuration set for Claude Code**. Its contents are deployed into the home directory at `~/.claude/`, serving Claude Desktop, Claude Code inside VS Code, and terminal Claude Code from a single source. There is no executable code — the deliverables are markdown rule files plus one JSON settings file: a global behaviour charter (`CLAUDE.md`), 8 skills, 3 rules, 1 subagent, and the permission/model configuration in `settings.json`.
 
-Two directories take no part in deployment and affect no model behaviour: `含中文翻譯/` ("with Chinese translation") holds a human-facing mirror and its translations, and `.ref/` keeps superseded charters for reference. `skills/synced/` is a backup of skills synced from the claude.ai account — not content this repo maintains.
+One directory takes no part in deployment and affects no model behaviour: `.ref/` keeps superseded charters for reference. `skills/synced/` is a backup of skills synced from the claude.ai account — not content this repo maintains.
 
 ## Architecture
 
@@ -33,11 +33,10 @@ dotclaude/                      ~/.claude/
 ├── skills/            ──────►  ├── skills/         description match or /<name>
 │   └── synced/        ──╳───►  │                   (account-side backup, not deployed)
 ├── agents/            ──────►  └── agents/         only on subagent_type
-├── 含中文翻譯/        ──╳───►  (not deployed, reference only)
 └── .ref/              ──╳───►  (not deployed, superseded charters)
 ```
 
-Deploy **only `rules/`, `skills/` (excluding `synced/`), `agents/`, and the three root files**. Keep `含中文翻譯/` out of `~/.claude/skills/` — placed there it collides with the real skills by name.
+Deploy **only `rules/`, `skills/` (excluding `synced/`), `agents/`, and the three root files**.
 
 The placement rules live in section 1 of `rules/skill-authoring.md`. Read that table before adding anything: a repeatable multi-step procedure → a skill; a convention that applies every time a class of file is touched → a rule with `paths:`; a convention that applies only inside one task → a skill carrying `paths:`; build/test commands for one repo → that project's own CLAUDE.md; a one-off lesson that might generalise → `LESSONS.md`.
 
@@ -66,7 +65,6 @@ dotclaude/
 │   └── synced/                  7 skills backed up from the claude.ai account; neither deployed nor maintained here
 ├── agents/
 │   └── doc-verifier.md          Read-only documentation auditor subagent
-├── 含中文翻譯/                  Mirror of the 15 English files above + 13 *.zh-TW.md translations
 └── .ref/                        Superseded charters kept for reference (CLAUDE.Fable5.md / CLAUDE.RULES.md)
 ```
 
@@ -98,7 +96,7 @@ Three pairings:
 No build, no test framework, no lint. "Deploying" means putting the files in the home directory:
 
 ```powershell
-# First deployment (PowerShell) — excludes the translation mirror, the reference copies, and the account-side backup
+# First deployment (PowerShell) — excludes the reference copies and the account-side backup
 Copy-Item -Path .\CLAUDE.md, .\settings.json, .\LESSONS.md -Destination "$env:USERPROFILE\.claude\" -Force
 Copy-Item -Path .\rules, .\agents -Destination "$env:USERPROFILE\.claude\" -Recurse -Force
 Copy-Item -Path .\skills -Destination "$env:USERPROFILE\.claude\" -Recurse -Force
@@ -113,26 +111,13 @@ After changing any rule, these are the checks:
 
 1. **Formatting** — per `rules/markdown.md`: one physical line per paragraph, one blank line around every block, a trailing newline, no BOM, no trailing whitespace.
 
-2. **Mirror sync** — every English file under `含中文翻譯/` must be byte-identical to its top-level original:
+2. **Section citations** — every `(global: X)` and `CLAUDE.md **X**` in these files must resolve to one of the 10 section names `CLAUDE.md` currently has. Renaming or deleting a section silently invalidates them.
 
-   ```powershell
-   $root = (Resolve-Path .).Path
-   Get-ChildItem -Recurse -File -Filter *.md -Path .\含中文翻譯 |
-     Where-Object { $_.Name -notlike '*.zh-TW.md' } |
-     ForEach-Object {
-       $orig = Join-Path $root $_.FullName.Substring((Join-Path $root '含中文翻譯').Length + 1)
-       $ok = (Test-Path $orig) -and ((Get-FileHash $orig).Hash -eq (Get-FileHash $_.FullName).Hash)
-       "{0,-6} {1}" -f $(if ($ok) { 'OK' } else { 'DRIFT' }), $_.Name
-     }
-   ```
+3. **Frontmatter, key by key** — check each one by hand against the list in section 2 of `rules/skill-authoring.md`. A passing `claude plugin validate --strict` proves nothing here: it type-checks only `description`, `name`, `allowed-tools`, `metadata`, and `shell`, silently ignores every key it does not recognise, and never scans `rules/` at all.
 
-3. **Section citations** — every `(global: X)` and `CLAUDE.md **X**` in these files must resolve to one of the 10 section names `CLAUDE.md` currently has. Renaming or deleting a section silently invalidates them.
+4. **Actual triggering** — per section 8 of `rules/skill-authoring.md`, run 2–3 prompts phrased the way a request really arrives. A skill that fails to load is a `description` problem; a skill that loads but produces the wrong artifact is a body problem. The two repairs are different.
 
-4. **Frontmatter, key by key** — check each one by hand against the list in section 2 of `rules/skill-authoring.md`. A passing `claude plugin validate --strict` proves nothing here: it type-checks only `description`, `name`, `allowed-tools`, `metadata`, and `shell`, silently ignores every key it does not recognise, and never scans `rules/` at all.
-
-5. **Actual triggering** — per section 8 of `rules/skill-authoring.md`, run 2–3 prompts phrased the way a request really arrives. A skill that fails to load is a `description` problem; a skill that loads but produces the wrong artifact is a body problem. The two repairs are different.
-
-6. **Settings in effect** — run `/status`, `/model`, `/effort` in any project and check them against `settings.json`. When the product disagrees with this repo, trust the product and report the drift.
+5. **Settings in effect** — run `/status`, `/model`, `/effort` in any project and check them against `settings.json`. When the product disagrees with this repo, trust the product and report the drift.
 
 ## Dependencies
 
@@ -161,5 +146,4 @@ This repo contains no secrets and `settings.json` has no `env` block. If an API 
 4. **Language rule**: conversation in Taiwanese Traditional Chinese; rule / skill / agent files in English. The sole exception is a file whose *subject* is a specific language (`humanizer-zh-tw`), which is written in the language it operates on.
 5. **Omit `model:` / `effort:` by default** — omission is how a file inherits `settings.json`. An override must carry a written reason in the same file. The distinction that matters: on an inline skill the override changes the model for the **whole turn**, catching unrelated work in the same turn, while on a `context: fork` skill it applies to the fork alone. An override is therefore cheap on a forked skill and expensive on an inline one — prefer moving the skill to a fork over downgrading a turn.
 6. **`background:` only does anything under `context: fork`.** On an inline skill it is inert and merely implies a behaviour that was never configured.
-7. **When an English file changes, update both its copy under `含中文翻譯/` and the matching `.zh-TW.md` translation.** Translations render the body only; functional frontmatter keys such as `name` keep their original values. `humanizer` has no translation and `humanizer-zh-tw` needs none — those two gaps are deliberate, not oversights.
-8. **Cite `CLAUDE.md` by section name, never by section number** — numbers drift as the file is edited.
+7. **Cite `CLAUDE.md` by section name, never by section number** — numbers drift as the file is edited.
