@@ -18,7 +18,7 @@ The rest of this file assumes that README exists, and §4 keeps it in sync with 
 
 ## 2. UI_README.html — developer architecture doc (App projects, opt-in)
 
-When the app first becomes runnable, ASK the user whether this project should include it; record the answer in the project's CLAUDE.md. If yes: a single self-contained HTML file (inline CSS/JS, no CDN, opens by double-click). Language: 台灣繁體中文，專有名詞用英文.
+When the app first becomes runnable, ASK the user whether this project should include it; record the answer in the project's CLAUDE.md. If yes: a single self-contained HTML file (inline CSS/JS, no CDN, opens by double-click). Language: Taiwan Traditional Chinese (臺灣繁體中文); technical terms may stay in English.
 
 Focus: **code flow and architecture design** — module design and interaction relationships, plus features and limitations. This is an architecture document, NOT a code walkthrough.
 
@@ -36,7 +36,7 @@ Prohibited: pasting function bodies or explaining code line-by-line. Reference c
 
 ## 3. 使用者指引.html — end-user manual (on release only)
 
-Create only when the app will be packaged and delivered to non-developers; if delivery plans are unclear, ask. Audience: non-technical end users. Language: 台灣繁體中文, plain everyday wording over jargon. A single self-contained HTML file.
+Create only when the app will be packaged and delivered to non-developers; if delivery plans are unclear, ask. Audience: non-technical end users. Language: Taiwan Traditional Chinese (臺灣繁體中文), plain everyday wording over jargon. A single self-contained HTML file.
 
 **Standalone constraint (hard rule)**: assume the end user receives EXACTLY two files — the `.exe` and `使用者指引.html`. Therefore:
 
@@ -89,6 +89,17 @@ Before writing UI code for a screen that does not exist yet, or when the user is
 
   If the check fails, regenerate the `.ico` from a ≥256 px source PNG before proceeding. If no `.ico` exists at all, ask the user rather than generating one unprompted. The two icon surfaces that live in Python source — title bar and taskbar — are covered by `python-ui`.
 
+- **conda environments: prepend `Library\bin` to `PATH` inside the .spec.** A conda env keeps its native DLLs in `<sys.prefix>\Library\bin`, a directory that is not on PyInstaller's dependency search path. Without this the build succeeds and the .exe dies on launch with `ImportError: DLL load failed while importing _ctypes` (or `pyexpat`, or `tcl86t`). Every .spec built from a conda env needs this above `Analysis(...)`:
+
+  ```python
+  import os, sys
+  os.environ['PATH'] = os.path.join(sys.prefix, 'Library', 'bin') + os.pathsep + os.environ['PATH']
+  ```
+
+  Do **not** reach for `Analysis(pathex=[...])` instead — `pathex` only affects Python *module* search, while DLL dependency resolution goes through `PATH`. Adding it changes nothing and every `Library not found` warning comes back verbatim. The acceptance check is **zero `Library not found` warnings in the build log**, not `exit 0`: the build exits 0 either way.
+
+- **A shared conda env makes `excludes=[...]` stale rather than wrong.** An `excludes` list was written to drop packages that happened to live in the env at the time. After moving to a cleaner env most entries match nothing, but keep them as insurance rather than pruning them. The reverse also holds: a .spec that only ever built under one env can expose gaps that env was masking. **After changing env, rebuild and re-verify every .spec in the project, not only the one you edited.**
+
 ## 7. Verification
 
 Nothing in this set is done because the file was written (global: Goal-Driven Execution):
@@ -97,6 +108,6 @@ Nothing in this set is done because the file was written (global: Goal-Driven Ex
 2. **使用者指引.html**: search the file for `README`, `UI_README`, `.py`, `python`, `conda`, `venv`, and any absolute path. Every hit is a standalone-constraint violation and must go.
 3. **Self-contained**: no `<script src=`, `<link rel="stylesheet" href=`, or `<img src=` pointing outside the file, in either HTML document.
 4. **Sync**: version number, app name, and entry-point command read the same in every document that mentions them.
-5. **Packaging**: launch the actual `.exe` and run the single most common task. "Built" is not "done."
+5. **Packaging**: launch the actual `.exe` and confirm a window really appears, then run the single most common task. "Built" is not "done" — and neither is a green test suite, because tests rarely create a Window and so never load the DLLs that break at launch. Use the `exe-verify` skill for the launch check and for diagnosing a build that dies or hangs; do not improvise one.
 6. **Icon**: after packaging, confirm the .exe's Explorer icon, the window title bar, and the taskbar all show the intended image.
 7. If 使用者指引.html exists, its version/date stamp matches this build (§4).

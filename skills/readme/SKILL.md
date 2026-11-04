@@ -10,7 +10,7 @@ Every project has a `README.md` at the repo root — it is both the repo's front
 
 ## 1. Required sections
 
-Audience: developers and repo visitors. Language: 台灣繁體中文，專有名詞用英文.
+Audience: developers and repo visitors. Language: Taiwan Traditional Chinese (臺灣繁體中文); technical terms may stay in English.
 
 - **Overview**: what the project does, 3–5 sentences.
 - **Architecture**: pattern used, module responsibilities, one ASCII/Mermaid data-flow diagram.
