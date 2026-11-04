@@ -25,6 +25,18 @@ A list that touches the paragraph below it gets parsed as a continuation of the 
 
 Use exactly one blank line — consecutive blank lines carry no meaning and only add noise to diffs.
 
+## Writing markdown from PowerShell
+
+The backtick is PowerShell's escape character, so a double-quoted string containing markdown code spans is mangled before it ever reaches the file: the backticks disappear, and any that happen to form an escape sequence (`` `n ``, `` `t ``) become a real line break or tab in the middle of the text.
+
+Write markdown through a single-quoted here-string, which is literal, or through the Write tool. The here-string mechanics — and the closing-delimiter trap — are in `rules/powershell.md` under Here-strings.
+
+```powershell
+@'
+Use `Get-Content -Raw` here; the backticks survive.
+'@ | Out-File -FilePath notes.md -Encoding utf8
+```
+
 ## Verification
 
-After editing a markdown file, check that no paragraph is split across physical lines and that every heading, list, and fence is bounded by blank lines. Both are visible in the raw source; no renderer is needed.
+After editing a markdown file, check that no paragraph is split across physical lines and that every heading, list, and fence is bounded by blank lines. Both are visible in the raw source; no renderer is needed. If the file was written from PowerShell, also confirm that every code span still has its backticks.

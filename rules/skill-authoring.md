@@ -46,6 +46,7 @@ Optional, and omitted by default:
 - **`context: fork`** — only when the skill needs an isolated context. Without it the skill runs inline: it sees the conversation history, and any `model:` / `effort:` override lands on the whole turn. A forked skill sees none of that history, so everything it works on must arrive as an argument or a file path — say so in the body, and give the skill an `argument-hint:`.
 - **`background:`** — meaningful **only** together with `context: fork`; on an inline skill it is inert and merely implies a behaviour that was never configured. `false` keeps the caller waiting and delivers the result into the conversation; `true` runs the fork in the background and reports back as a task notification. Set it explicitly on every forking skill rather than leaving the choice to the default.
 - **`allowed-tools:`** — only when the skill would otherwise be tempted to reach for tools it should not use.
+- **`disable-model-invocation: true`** — only for a skill that must run solely when the user types its slash command (for example `/handoff`). The model can no longer load it on its own, so the description stops being a trigger: state what the skill does and which command runs it, and skip the trigger phrasing that "Writing the description" below asks for.
 
 ### Writing the description
 
@@ -53,7 +54,7 @@ The common failure is **under**-triggering, not over-triggering. Write the descr
 
 **Weak:** `Helps with plotting.`
 
-**Strong:** `Applies the project's Matplotlib/seaborn figure conventions — GridSpec layout, dpi=300, tight bounding box, dynamic y-axis padding. Use this whenever a plot, chart, or figure is being produced or restyled in Python, including quick one-off diagnostic plots and any call to plt.subplots, sns.lineplot, or savefig.
+**Strong:** `Applies the project's Matplotlib/seaborn figure conventions — GridSpec layout, dpi=300, tight bounding box, dynamic y-axis padding. Use this whenever a plot, chart, or figure is being produced or restyled in Python, including quick one-off diagnostic plots and any call to plt.subplots, sns.lineplot, or savefig.`
 
 Name the concrete surface forms a request will take (file extensions, tool names, the words a person actually types), not an abstract category.
 
