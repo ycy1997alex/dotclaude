@@ -4,9 +4,7 @@
 
 ## Overview
 
-This repo is a **user-scope configuration set for Claude Code**. Its contents are deployed into the home directory at `~/.claude/`, serving Claude Desktop, Claude Code inside VS Code, and terminal Claude Code from a single source. There is no executable code — the deliverables are markdown rule files plus one JSON settings file: a global behaviour charter (`CLAUDE.md`), 8 skills, 3 rules, 1 subagent, and the permission/model configuration in `settings.json`.
-
-One directory takes no part in deployment and affects no model behaviour: `.ref/` keeps superseded charters for reference. `skills/synced/` is a backup of skills synced from the claude.ai account — not content this repo maintains.
+This repo is a **user-scope configuration set for Claude Code**. Its contents are deployed into the home directory at `~/.claude/`, serving Claude Desktop, Claude Code inside VS Code, and terminal Claude Code from a single source. There is no executable code — the deliverables are markdown rule files plus one JSON settings file: a global behaviour charter (`CLAUDE.md`), 15 skills, 3 rules, 1 subagent, and the permission/model configuration in `settings.json`. Some skills ship PowerShell / Python helper scripts that the model runs directly, but nothing needs building.
 
 ## Architecture
 
@@ -21,7 +19,7 @@ The real architecture is *which file loads when*. Claude Code has four loading t
 
 A skill carrying `paths:` picks up one further restriction: **it loads only after the model has actually touched a matching file**, so it is absent from the skill listing at the start of a session. That is a deliberate trade. It suits work that always begins from an existing file (`python-ui`) and hurts work where the user speaks before any file is open, which is why `python-plot` drops `paths:` and triggers on its description instead.
 
-A skill's `references/` directory is the third disclosure tier: the SKILL.md body loads in full when the skill triggers, while `references/` is read only when the body names a "read this when…" condition. Only `officecli` uses it today.
+A skill's `references/` directory is the third disclosure tier: the SKILL.md body loads in full when the skill triggers, while `references/` is read only when the body names a "read this when…" condition. Only `text-watermark-cleaner-zh-tw` uses it today. `scripts/` and `assets/` hold files the model runs or copies into a project; they are never read into context (`exe-verify`, `office-com`, `project-icon`, and `text-watermark-cleaner-zh-tw` ship `scripts/`; `python-ui` ships `assets/`).
 
 Deployment mapping:
 
@@ -31,12 +29,10 @@ dotclaude/                      ~/.claude/
 ├── settings.json      ──────►  ├── settings.json   permissions / model / cleanup
 ├── rules/             ──────►  ├── rules/          loaded on paths: glob match
 ├── skills/            ──────►  ├── skills/         description match or /<name>
-│   └── synced/        ──╳───►  │                   (account-side backup, not deployed)
-├── agents/            ──────►  └── agents/         only on subagent_type
-└── .ref/              ──╳───►  (not deployed, superseded charters)
+└── agents/            ──────►  └── agents/         only on subagent_type
 ```
 
-Deploy **only `rules/`, `skills/` (excluding `synced/`), `agents/`, and the three root files**.
+Deploy **only `rules/`, `skills/`, `agents/`, and the three root files**.
 
 The placement rules live in section 1 of `rules/skill-authoring.md`. Read that table before adding anything: a repeatable multi-step procedure → a skill; a convention that applies every time a class of file is touched → a rule with `paths:`; a convention that applies only inside one task → a skill carrying `paths:`; build/test commands for one repo → that project's own CLAUDE.md; a one-off lesson that might generalise → `LESSONS.md`.
 
@@ -53,41 +49,60 @@ dotclaude/
 │   ├── powershell.md            **/*.ps1 — three default encodings, syntax 5.1 lacks, native interop, verification list
 │   └── skill-authoring.md       **/SKILL.md — full skill-writing spec and pre-ship checklist
 ├── skills/
+│   ├── exe-verify/              Confirm a packaged .exe really opens a window; read hidden error dialogs, capture one window
+│   │   └── scripts/             wait-for-window / read-error-dialog (.ps1), capture-window (.py)
 │   ├── git-commit/              Conventional Commits 1.0.0 + house emoji prefix; prints commands, never runs them
+│   ├── handoff/                 /handoff: a letter to the next session; manual invocation only
 │   ├── humanizer/               Strip AI-writing tells from English prose (Wikipedia-derived)
-│   ├── humanizer-zh-tw/         Chinese counterpart; written in Chinese (the sole exception to the language rule)
-│   ├── officecli/               .docx / .xlsx / .pptx via the officecli CLI
-│   │   └── references/          elements / watch-marks / batch-raw, read only when the body says so
+│   ├── humanizer-zh-tw/         Chinese counterpart; written in Chinese (an exception to the language rule)
+│   ├── null-calibration/        Measure a small-sample selection threshold's false-positive rate on a placebo / shuffled null
+│   ├── office-com/              Drive Office from PowerShell / win32com without closing the user's windows; .xlsx open check
+│   │   └── scripts/             verify-xlsx.ps1
+│   ├── project-icon/            Generate a multi-resolution app.ico from the project's own tools/make_icon.py
+│   │   └── scripts/             preview_ico.py (16px legibility check)
 │   ├── python-plot/             matplotlib / seaborn figure conventions
 │   ├── python-ui/               tkinter / ttkbootstrap desktop UI; used as a pair with ui-project
+│   │   └── assets/              win_icon.py (per-slot title-bar / taskbar icons)
 │   ├── readme/                  README.md required sections + language switcher and translation sync
-│   ├── ui-project/              UI_README.html / 使用者指引.html / /design / PyInstaller packaging
-│   └── synced/                  7 skills backed up from the claude.ai account; neither deployed nor maintained here
-├── agents/
-│   └── doc-verifier.md          Read-only documentation auditor subagent
-└── .ref/                        Superseded charters kept for reference (CLAUDE.Fable5.md / CLAUDE.RULES.md)
+│   ├── stock-research-note/     zh-TW research note on one stock; every number cites its source and as_of
+│   ├── stock-score-review/      Ranked score review and screens across a watchlist
+│   ├── text-watermark-cleaner-zh-tw/  Clean invisible Unicode and text-level AI provenance; written in Chinese
+│   │   ├── references/          chinese-text.md, read only when the body says so
+│   │   └── scripts/             inspect / clean / score_stylometry (.py) plus .ps1 wrappers
+│   └── ui-project/              UI_README.html / 使用者指引.html / /design / PyInstaller packaging
+└── agents/
+    └── doc-verifier.md          Read-only documentation auditor subagent
 ```
 
 ### Skill inventory
 
-The norm for frontmatter here is **`name` and `description` and nothing else**. Two of the eight skills carry extra keys, each for a stated reason.
+The norm for frontmatter here is **`name` and `description` and nothing else**. The skills that carry extra keys are listed below, each for a reason.
 
 | Skill | Trigger | Extra frontmatter |
 | --- | --- | --- |
+| `exe-verify` | Description match (signing off a build, .exe crashes, icon not updated) | None; ships `scripts/` |
 | `git-commit` | Description match, or manual `/git-commit` | None |
-| `humanizer` | Description match (editing English prose) | None |
-| `humanizer-zh-tw` | Description match, or manual `/humanizer-zh-tw` | `argument-hint`, `context: fork`, `background: false`, `model: sonnet`, `effort: high` |
-| `officecli` | Description match (Office files) | None; depends on the external `officecli` binary; ships `references/` |
+| `handoff` | Manual `/handoff` only | `disable-model-invocation: true` |
+| `humanizer` | Description match (editing English prose) | `license`, `metadata` (version) |
+| `humanizer-zh-tw` | Description match, or manual `/humanizer-zh-tw` | `metadata` (source and revision date) |
+| `null-calibration` | Description match (screening features, choosing a threshold) | None |
+| `office-com` | Description match (`-ComObject`, `win32com`, Excel won't open a file) | None; ships `scripts/` |
+| `project-icon` | Description match (an .ico is needed, an icon is blurry) | None; ships `scripts/` |
 | `python-plot` | Description match (drawing, saving, restyling a figure) | None |
-| `python-ui` | `paths: **/*.py`, `**/*.spec` | `paths` |
+| `python-ui` | `paths: **/*.py`, `**/*.spec` | `paths`; ships `assets/` |
 | `readme` | Description match (writing or updating a README, adding a language) | None; preloaded by `doc-verifier` via `skills:` |
+| `stock-research-note` | Description match (one stock named) | None |
+| `stock-score-review` | Description match (ranking several names, scanning a watchlist) | None |
+| `text-watermark-cleaner-zh-tw` | Description match (remove a text watermark, clean invisible characters) | None; ships `references/`, `scripts/`, `agents/openai.yaml` |
 | `ui-project` | Description match (UI_README, 使用者指引, packaging) | None; preloaded by `doc-verifier` via `skills:` |
 
-Three pairings:
+Pairings:
 
 - `readme` and `ui-project` used to be one skill. README rules apply to every project while UI_README.html and PyInstaller packaging apply only to App projects — binding two different trigger conditions together forced every README task to load the whole packaging ruleset, so they were split.
 - `python-ui` is the lower layer and `ui-project` the upper one. The `.ico` and `sys._MEIPASS` rules live in `ui-project` alone; `python-ui` points at them instead of restating them, and opens by asking for both to be loaded together.
-- `humanizer` handles English and `humanizer-zh-tw` handles Chinese; each description routes to the other so one request cannot half-trigger both.
+- `exe-verify` owns post-build verification and diagnosis, while the .spec conventions that prevent failures stay in `ui-project`; `project-icon` draws the `.ico`, while the .spec entries and the three icon surfaces stay in `ui-project` and the in-process icon calls in `python-ui`.
+- `humanizer` handles English and `humanizer-zh-tw` handles Chinese. `humanizer-zh-tw` only rewrites tone; invisible Unicode and text watermarks belong to `text-watermark-cleaner-zh-tw`, and the former's description routes there.
+- `stock-research-note` writes up one stock and `stock-score-review` ranks many; each description routes to the other.
 
 `doc-verifier` is the only subagent here: `tools: Read, Grep, Glob, PowerShell` (no write tools), `skills: [readme, ui-project]`, `model: sonnet` / `effort: medium`. It reports problems and never edits files.
 
@@ -96,12 +111,13 @@ Three pairings:
 No build, no test framework, no lint. "Deploying" means putting the files in the home directory:
 
 ```powershell
-# First deployment (PowerShell) — excludes the reference copies and the account-side backup
+# First deployment (PowerShell)
 Copy-Item -Path .\CLAUDE.md, .\settings.json, .\LESSONS.md -Destination "$env:USERPROFILE\.claude\" -Force
 Copy-Item -Path .\rules, .\agents -Destination "$env:USERPROFILE\.claude\" -Recurse -Force
 Copy-Item -Path .\skills -Destination "$env:USERPROFILE\.claude\" -Recurse -Force
-Remove-Item "$env:USERPROFILE\.claude\skills\synced" -Recurse -Force -ErrorAction SilentlyContinue
 ```
+
+A skill deleted from this repo (such as `officecli`) does not disappear from `~/.claude/skills/` when the files are copied again; delete its directory by hand.
 
 **`settings.json` overwrites rather than merges.** Back up or diff the existing `permissions` block before copying over it.
 
@@ -122,8 +138,10 @@ After changing any rule, these are the checks:
 ## Dependencies
 
 - **Claude Code** (CLI / VS Code extension / Desktop) — the only runtime.
-- **`officecli`** — needed by the `officecli` skill only; a single binary, no Office installation required. That skill checks `officecli --version` before doing anything and never installs it on its own initiative.
-- Nothing else: no package manager, no runtime, no third-party libraries.
+- **Windows PowerShell 5.1** — the `.ps1` scripts in `exe-verify`, `office-com`, and `text-watermark-cleaner-zh-tw`.
+- **Python 3** — the `.py` scripts in `exe-verify`, `project-icon`, and `text-watermark-cleaner-zh-tw`, plus `python-ui`'s `win_icon.py`; standard library only, except that `project-icon` needs **Pillow**.
+- **Microsoft Office** — needed by `office-com` only (COM automation and the .xlsx open check).
+- No package manager; this repo installs nothing itself.
 
 ## Configuration
 
@@ -143,7 +161,7 @@ This repo contains no secrets and `settings.json` has no `env` block. If an API 
 1. **`CLAUDE.md` is edited by the user, by hand, only** — models may not even append; propose changes in chat. The rule is stated on line 6 of the file itself.
 2. **`LESSONS.md` is the one file models may append to**, and only for lessons that hold across projects, one per line as `- [YYYY-MM-DD] symptom → proposed global rule`. It is never loaded into a session, so appending changes no behaviour until the user promotes the lesson by hand. Over ~10 lines, say so.
 3. **Skill, rule, and agent files need explicit approval in the session before an edit is applied.** Proposing a change is always fine; applying it unilaterally is not.
-4. **Language rule**: conversation in Taiwanese Traditional Chinese; rule / skill / agent files in English. The sole exception is a file whose *subject* is a specific language (`humanizer-zh-tw`), which is written in the language it operates on.
+4. **Language rule**: conversation in Taiwanese Traditional Chinese; rule / skill / agent files in English. The exception is a file whose *subject* is a specific language (`humanizer-zh-tw`, `text-watermark-cleaner-zh-tw`), which is written in the language it operates on.
 5. **Omit `model:` / `effort:` by default** — omission is how a file inherits `settings.json`. An override must carry a written reason in the same file. The distinction that matters: on an inline skill the override changes the model for the **whole turn**, catching unrelated work in the same turn, while on a `context: fork` skill it applies to the fork alone. An override is therefore cheap on a forked skill and expensive on an inline one — prefer moving the skill to a fork over downgrading a turn.
 6. **`background:` only does anything under `context: fork`.** On an inline skill it is inert and merely implies a behaviour that was never configured.
 7. **Cite `CLAUDE.md` by section name, never by section number** — numbers drift as the file is edited.
