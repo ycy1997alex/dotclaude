@@ -93,7 +93,7 @@ The norm for frontmatter here is **`name` and `description` and nothing else**. 
 | `readme` | Description match (writing or updating a README, adding a language) | None; preloaded by `doc-verifier` via `skills:` |
 | `stock-research-note` | Description match (one stock named) | None |
 | `stock-score-review` | Description match (ranking several names, scanning a watchlist) | None |
-| `text-watermark-cleaner-zh-tw` | Description match (remove a text watermark, clean invisible characters) | None; ships `references/`, `scripts/`, `agents/openai.yaml` |
+| `text-watermark-cleaner-zh-tw` | Description match (remove a text watermark, clean invisible characters) | None; ships `references/`, `scripts/` |
 | `ui-project` | Description match (UI_README, 使用者指引, packaging) | None; preloaded by `doc-verifier` via `skills:` |
 
 Pairings:

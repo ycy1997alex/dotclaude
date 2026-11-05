@@ -1,7 +1,7 @@
 ---
 name: humanizer-zh-tw
 description: >-
-  潤飾中文文章、評論和文件，刪去空話、重複與公式化表達（俗稱去 AI 味、AI 寫作痕跡），讓文字更自然，同時保留事實、確定程度和作者聲音。適用於編輯或審閱已有文字；不用於判斷作者身分，也不保證通過 AI 偵測器。若使用者要求清理不可見 Unicode、文字型 AI 浮水印或檔案 provenance，改用 $text-watermark-cleaner-zh-tw，不要在本 skill 中把語氣改寫冒充成浮水印已移除。
+  潤飾中文文章、評論和文件，刪去空話、重複與公式化表達（俗稱去 AI 味、AI 寫作痕跡），讓文字更自然，同時保留事實、確定程度和作者聲音。適用於編輯或審閱已有文字；不用於判斷作者身分，也不保證通過 AI 偵測器。若使用者要求清理不可見 Unicode、文字型 AI 浮水印或檔案 provenance，改用 `text-watermark-cleaner-zh-tw`，不要在本 skill 中把語氣改寫冒充成浮水印已移除。
 metadata:
   trigger: 編輯或審閱中文文字，去除空話、重複與公式化表達
   source: op7418/Humanizer-zh 的繁體中文分支；同步其 2026-09-23 修訂（基於 blader/humanizer v3.0.0 與 Humanizer-zh PR 39），參考 hardikpandya/stop-slop
@@ -14,7 +14,7 @@ metadata:
 
 ## 先分類需求：與文字浮水印技能的分工
 
-只要求去 AI 味或潤飾時，留在本 skill；要求清理文字浮水印、不可見字元或 provenance 時，交給 `$text-watermark-cleaner-zh-tw`。
+只要求去 AI 味或潤飾時，留在本 skill；要求清理文字浮水印、不可見字元或 provenance 時，交給 `text-watermark-cleaner-zh-tw`。
 
 `humanizer-zh-tw` 處理語氣、結構與公式化表達；`text-watermark-cleaner-zh-tw` 處理不可見 Unicode 與文字 provenance。兩者不是同一種證據：自然改寫不等於浮水印已移除，Unicode 清理也不會移除統計式 token watermark。
 
@@ -414,7 +414,7 @@ metadata:
 - 連接詞是否仍表達原本的順序、因果、同時發生或轉折關係？
 - 檔案中受保護的內容和引用是否完整？程式碼、URL、數字、名稱、引文與必要揭露是否沒有被改動？
 - 繁體字、全形標點與原本的空白語意是否保留？有沒有擅自簡繁轉換或空白正規化？
-- 使用者其實是不是要求去除不可見字元或文字浮水印？是的話，改用 `$text-watermark-cleaner-zh-tw`。
+- 使用者其實是不是要求去除不可見字元或文字浮水印？是的話，改用 `text-watermark-cleaner-zh-tw`。
 
 這些檢查優先於風格偏好。不要用自評分、字數減少或「AI 味消失」取代事實與語意核對。
 

@@ -93,7 +93,7 @@ frontmatter 的常態是**只有 `name` 與 `description`**。帶額外欄位的
 | `readme` | description 命中（寫 / 更新 README、加語言版本） | 無；被 `doc-verifier` 以 `skills:` 預載 |
 | `stock-research-note` | description 命中（單一個股名稱） | 無 |
 | `stock-score-review` | description 命中（多檔排名、掃名單） | 無 |
-| `text-watermark-cleaner-zh-tw` | description 命中（去文字浮水印、清理不可見字元） | 無；含 `references/`、`scripts/`、`agents/openai.yaml` |
+| `text-watermark-cleaner-zh-tw` | description 命中（去文字浮水印、清理不可見字元） | 無；含 `references/`、`scripts/` |
 | `ui-project` | description 命中（UI_README / 使用者指引 / 打包） | 無；被 `doc-verifier` 以 `skills:` 預載 |
 
 成對關係：
